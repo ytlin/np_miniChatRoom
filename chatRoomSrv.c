@@ -148,14 +148,14 @@ int checkCommand(int numOfParam, char **command, char **errorMsg)
 	if(strcmp(command[0], "yell") != 0 && strcmp(command[0], "tell") != 0 && strcmp(command[0], "who") != 0 && strcmp(command[0], "name") != 0)
 	{
 		char err[] = "[Server] ERROR: Error command\n";
-                *errorMsg = malloc(sizeof(char) * strlen(err));
+                *errorMsg = malloc(sizeof(char) * (strlen(err)+1));
                 strcpy(*errorMsg, err);
                 return 0;
 	}
 	if(strcmp(command[0], "who") == 0 && numOfParam != 0 )
 	{
 		char err[] = "[Server] invalid parameter(s). try 'who'\n";
-		*errorMsg = malloc(sizeof(char) * strlen(err));
+		*errorMsg = malloc(sizeof(char) * (strlen(err)+1));
 		strcpy(*errorMsg, err);
 		return 0;
 	}
@@ -163,21 +163,21 @@ int checkCommand(int numOfParam, char **command, char **errorMsg)
 	{
 		fflush(stdout);
                 char err[] = "[Server] invalid parameter(s). try 'name <NEW USERNAME>'\n";
-                *errorMsg = malloc(sizeof(char) * strlen(err));
+                *errorMsg = malloc(sizeof(char) * (strlen(err)+1));
                 strcpy(*errorMsg, err);
 		return 0;
         }
 	if(strcmp(command[0], "tell") == 0 && numOfParam != 2)
 	{
                 char err[] = "[Server] invalid parameter(s). try 'tell <USERNAME> <MESSAGE>'\n";
-                *errorMsg = malloc(sizeof(char) * strlen(err));
+                *errorMsg = malloc(sizeof(char) * (strlen(err)+1));
                 strcpy(*errorMsg, err);
 		return 0;
         }
 	if(strcmp(command[0], "yell") == 0 && numOfParam != 1)
 	{
                 char err[] = "[Server] invalid parameter(s). try 'yell <MESSAGE>'\n";
-                *errorMsg = malloc(sizeof(char) * strlen(err));
+                *errorMsg = malloc(sizeof(char) * (strlen(err)+1));
                 strcpy(*errorMsg, err);
 		return 0;
         }
@@ -189,14 +189,14 @@ int checkCommand(int numOfParam, char **command, char **errorMsg)
 int parseCommand(int n, char *recvbuf, char **command)
 {
 	char *token;
-	char *rawData = malloc(sizeof(char) * n);
+	char *rawData = malloc(sizeof(char) * (n+1));
 	int indexOfCommand = -1;
 	strncpy(rawData, recvbuf, n);
 	char delimiter[] = " \n\r";
 	token = strtok(rawData, delimiter);
 	while(token != NULL && indexOfCommand < MAX_PARAM_NUM)
 	{
-		command[++indexOfCommand] = malloc(sizeof(char) * strlen(token));
+		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1));
 		strcpy(command[indexOfCommand], token);
 		token = strtok(NULL, delimiter);
 	}
