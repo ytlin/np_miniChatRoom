@@ -104,7 +104,6 @@ void who_c(int indexOfSelf,  int *client,  struct clientProfile *clientProfiles,
 		{
 			char *address = clientProfiles[i].ip_addr;
 			int port = clientProfiles[i].port;
-			printf("[DEBUF] ip: %s\n", address);
 			char *name = clientProfiles[i].name;
 			snprintf(sendbuf, BUFMAX, "[Server] %s %s/%d", name, address, port);
 			if(i == indexOfSelf)
@@ -162,7 +161,6 @@ int checkCommand(int numOfParam, char **command, char **errorMsg)
 	}
 	if(strcmp(command[0], "name") == 0 && numOfParam != 1)
 	{
-		printf("[DEBUG: XXXX]\n");
 		fflush(stdout);
                 char err[] = "[Server] invalid parameter(s). try 'name <NEW USERNAME>'\n";
                 *errorMsg = malloc(sizeof(char) * strlen(err));
@@ -235,6 +233,22 @@ void sendHelloMsg(int indexOfSelf, int *client, struct clientProfile *clientProf
 	}
 }
 //
+int getRandomPortNum()
+{
+	srand(time(NULL));
+	return rand()%49000 + 1024;
+}
+//
+void randomBind(int sockfd, struct sockaddr_in *my_addr, int addrlen)
+{
+	my_addr->sin_port = htons(getRandomPortNum());
+	while(0 != bind(sockfd, (SA *) my_addr, addrlen))
+	{
+		my_addr->sin_port = htons(getRandomPortNum());
+	}
+	printf("Server bind on: %s/%d\n", inet_ntoa(my_addr->sin_addr), (int)ntohs(my_addr->sin_port));
+}
+//
 int main(int argc, char **argv)
 {
 	int i, maxi, maxfd, listenfd, connfd, sockfd;
@@ -253,9 +267,10 @@ int main(int argc, char **argv)
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(2222);
+	randomBind(listenfd, &servaddr, sizeof(servaddr));
+	//servaddr.sin_port = htons(2222);
 
-	Bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
+	//Bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
 
 	Listen(listenfd, LISTENQ);
 
