@@ -8,6 +8,94 @@ struct clientProfile {
 	int port;
 };
 //
+void yell_c(char *msg, int indexOfSelf, int *client,  struct clientProfile *clientProfiles, char *sendbuf)
+{
+	snprintf(sendbuf, BUFMAX, "[Server] %s yell %s\n", clientProfiles[indexOfSelf].name, msg);
+	for(int i=0;i<FD_SETSIZE;i++)
+	{
+		if(client[i] != -1)
+			Writen(client[i], sendbuf, strlen(sendbuf));
+	}
+}
+//
+void tell_c(char *target, char *msg, int indexOfSelf,  int *client,  struct clientProfile *clientProfiles, char *sendbuf)
+{
+	/* check name and exitence */
+	if(strcmp(clientProfiles[indexOfSelf].name, "anonymous") == 0)
+        {
+                snprintf(sendbuf, BUFMAX, "[Server] ERROR: You are anonymous\n");
+                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                return;
+        }
+	if(strcmp(target, "anonymous") == 0)
+        {
+                snprintf(sendbuf, BUFMAX, "[Server] ERROR: The client to which you sent is anonymous\n");
+                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                return;
+        }
+	int foundFlg = 0;
+	int target_fd;
+	for(int i=0;i<FD_SETSIZE;i++)
+	{
+		if(client[i] != -1 && strcmp(clientProfiles[i].name, target) ==0)
+		{
+			target_fd = client[i];
+			foundFlg = 1;
+			break;
+		}
+	}
+	if(!foundFlg)
+	{
+		snprintf(sendbuf, BUFMAX, "[Server] ERROR: The receiver doesn't exist\n");
+                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                return;
+	}
+	/* let's send the msg and notice to self*/
+	snprintf(sendbuf, BUFMAX, "[Server] %s tell you %s\n", clientProfiles[indexOfSelf].name, msg);
+        Writen(target_fd, sendbuf, strlen(sendbuf));
+	snprintf(sendbuf, BUFMAX, "[Server] SUCCESS: Your message has been sent\n");
+        Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+}
+//
+void name_c(char *nameToChange, int indexOfSelf,  int *client,  struct clientProfile *clientProfiles, char *sendbuf)
+{
+	/* check name format */
+	if(strcmp(nameToChange, "anonymous") == 0)	
+	{
+		snprintf(sendbuf, BUFMAX, "[Server] ERROR: Username cannot be anonymous\n");
+		Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+		return;
+	}
+	int lenOfNameToChange = strlen(nameToChange);
+	if(lenOfNameToChange < 2 || lenOfNameToChange > 12)
+	{
+		snprintf(sendbuf, BUFMAX, "[Server] ERROR: Username can only consists of 2~12 English letters\n");
+                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                return;
+	}
+	for(int i=0;i<FD_SETSIZE;i++)
+	{
+		if(i != indexOfSelf && client[i] != -1 && strcmp(nameToChange, clientProfiles[i].name) == 0)
+		{
+			snprintf(sendbuf, BUFMAX, "[Server] ERROR: %s has been used by others\n", nameToChange);
+                	Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                	return;
+		}
+	}
+	/* legal name format, time to change it */
+	snprintf(sendbuf, BUFMAX, "[Server] You're now known as %s\n", nameToChange);
+        Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+	for(int i=0;i<FD_SETSIZE;i++)
+        {
+		if(i != indexOfSelf && client[i] != -1)
+		{
+			snprintf(sendbuf, BUFMAX, "[Server] %s is now known as %s\n", clientProfiles[indexOfSelf].name, nameToChange);
+        		Writen(client[i], sendbuf, strlen(sendbuf));
+		}	
+	}
+	strcpy(clientProfiles[indexOfSelf].name, nameToChange);
+}
+//
 void who_c(int indexOfSelf,  int *client,  struct clientProfile *clientProfiles, char *sendbuf)
 {
 	for(int i=0;i<FD_SETSIZE;i++)
@@ -36,15 +124,15 @@ void execCommand(char **command, int indexOfSelf, int *client, struct clientProf
 	}
 	if(strcmp(command[0], "name") == 0)
 	{
-		;//name_c();
+		name_c(command[1], indexOfSelf, client,  clientProfiles, sendbuf);
 	}
 	if(strcmp(command[0], "tell")== 0)
 	{
-		;//tell_c();
+		tell_c(command[1], command[2], indexOfSelf, client,  clientProfiles, sendbuf);
 	}
 	if(strcmp(command[0], "yell")== 0)
 	{
-		;//yell_c();
+		yell_c(command[1], indexOfSelf, client,  clientProfiles, sendbuf);
 	}
 }
 //
