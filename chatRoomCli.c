@@ -13,7 +13,7 @@
 #include        <unistd.h>
 #include        <sys/wait.h>
 #include        <sys/un.h>              /* for Unix domain sockets */
-#define MAXLINE         4096
+#define MAXLINE         1500
 #define SA struct sockaddr
 #define max(a,b)        ((a) > (b) ? (a) : (b))
 
@@ -38,9 +38,11 @@ void str_cli(FILE *fp, int sockfd)
                         if ( (n = read(sockfd, buf, MAXLINE)) == 0) {
                                 if (stdineof == 1)
                                         return;         /* normal termination */
-                                else
+                                else{
                                        printf("str_cli: server terminated prematurely\n");
                                        // err_quit("str_cli: server terminated prematurely");
+					exit(1);
+				}
                         }
 
                         write(fileno(stdout), buf, n);
@@ -48,14 +50,12 @@ void str_cli(FILE *fp, int sockfd)
 
                 if (FD_ISSET(fileno(fp), &rset)) {  /* input is readable */
 			n = read(fileno(fp), buf, MAXLINE);
-			printf("n: %d\n", n);
-                        if (n  == 0 || strncmp("exit", buf, n-1)==0) {
+                        if (n  == 0  || strncmp("exit", buf, 4) == 0) {
                                 stdineof = 1;
                                 shutdown(sockfd, SHUT_WR);      /* send FIN */
                                 FD_CLR(fileno(fp), &rset);
                                 continue;
                         }
-
                         write(sockfd, buf, n);
                 }
         }
@@ -80,6 +80,5 @@ int main(int argc, char **argv)
 	connect(sockfd, (SA *) &servaddr, sizeof(servaddr));
 
 	str_cli(stdin, sockfd);		/* do it all */
-
 	exit(0);
 }

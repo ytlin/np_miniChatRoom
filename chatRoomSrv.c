@@ -13,7 +13,7 @@
 #include        <unistd.h>
 #include        <sys/wait.h>
 #include        <sys/un.h>              /* for Unix domain sockets */
-#define BUFMAX 1024
+#define BUFMAX 1500
 #define MAX_PARAM_NUM 3  
 #define SA struct sockaddr
 #define LISTENQ 1024
@@ -142,6 +142,7 @@ void execCommand(char **command, int indexOfSelf, int *client, struct clientProf
 	}
 	if(strcmp(command[0], "tell")== 0)
 	{
+		
 		tell_c(command[1], command[2], indexOfSelf, client,  clientProfiles, sendbuf);
 	}
 	if(strcmp(command[0], "yell")== 0)
@@ -212,15 +213,57 @@ int parseCommand(int n, char *recvbuf, char **command)
 	char *rawData = malloc(sizeof(char) * (n+1));
 	int indexOfCommand = -1;
 	strncpy(rawData, recvbuf, n);
+	rawData[n] = '\x00';
 	char delimiter[] = " \n\r";
 	token = strtok(rawData, delimiter);
-	while(token != NULL && indexOfCommand < MAX_PARAM_NUM)
+	if(NULL != token && strcmp(token, "yell") == 0)
+	{
+		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1));
+		strcpy(command[indexOfCommand], token);
+		token = strtok(NULL, "");
+		if(NULL == token)
+			return indexOfCommand;
+		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1));
+		strcpy(command[indexOfCommand], token);
+	}else if(NULL != token && strcmp(token, "tell") == 0)
 	{
 		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1));
 		strcpy(command[indexOfCommand], token);
 		token = strtok(NULL, delimiter);
+		if(NULL == token)
+			return indexOfCommand;
+		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1)); //target name
+		strcpy(command[indexOfCommand], token);
+		token = strtok(NULL, "");
+		if(NULL == token)
+			return indexOfCommand;
+		command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1)); //msg
+		strcpy(command[indexOfCommand], token);
+	}else
+	{
+		while(NULL != token && indexOfCommand < MAX_PARAM_NUM)
+		{
+			command[++indexOfCommand] = malloc(sizeof(char) * (strlen(token)+1));
+			strcpy(command[indexOfCommand], token);
+			token = strtok(NULL, delimiter);
+		}
 	}
 	return indexOfCommand;
+}
+//
+void resetCommand(char **command)
+{
+	for(int i=0;i<MAX_PARAM_NUM;i++)
+	{
+		free(command[i]);
+		command[i] = NULL;		
+	}
+}
+//
+void resetErrorMsg(char **errorMsg)
+{
+	free(*errorMsg);
+	*errorMsg = NULL;
 }
 //
 void sendOfflineMsg(int indexOfSelf, int *client, struct clientProfile *clientProfiles ,char *sendbuf)
@@ -317,6 +360,7 @@ int main(int argc, char **argv)
 			if (i == FD_SETSIZE)
 			{
 				printf("[ERROR] Too many clients\n");
+				continue;
 				//err_quit("too many clients");
 			}
 			/* main logic */
@@ -354,6 +398,8 @@ int main(int argc, char **argv)
 					{
 						sendErrorMsg(sockfd, errorMsg);
 					}
+					resetCommand(command);
+					resetErrorMsg(&errorMsg);
 					/* end of main logic */
 				}	
 
