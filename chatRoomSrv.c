@@ -1,7 +1,22 @@
-/* include fig01 */
-#include "unp.h"
+#include        <sys/types.h>   /* basic system data types */
+#include        <sys/socket.h>  /* basic socket definitions */
+#include        <time.h>                /* old system? */
+#include        <netinet/in.h>  /* sockaddr_in{} and other Internet defns */
+#include        <arpa/inet.h>   /* inet(3) functions */
+#include        <netdb.h>
+#include        <signal.h>
+#include        <stdio.h>
+#include        <stdlib.h>
+#include        <string.h>
+#include        <sys/stat.h>    /* for S_xxx file mode constants */
+#include        <sys/uio.h>             /* for iovec{} and readv/writev */
+#include        <unistd.h>
+#include        <sys/wait.h>
+#include        <sys/un.h>              /* for Unix domain sockets */
 #define BUFMAX 1024
 #define MAX_PARAM_NUM 3  
+#define SA struct sockaddr
+#define LISTENQ 1024
 struct clientProfile {
 	char name[14];
 	char ip_addr[INET_ADDRSTRLEN];
@@ -14,7 +29,7 @@ void yell_c(char *msg, int indexOfSelf, int *client,  struct clientProfile *clie
 	for(int i=0;i<FD_SETSIZE;i++)
 	{
 		if(client[i] != -1)
-			Writen(client[i], sendbuf, strlen(sendbuf));
+			write(client[i], sendbuf, strlen(sendbuf));
 	}
 }
 //
@@ -24,13 +39,13 @@ void tell_c(char *target, char *msg, int indexOfSelf,  int *client,  struct clie
 	if(strcmp(clientProfiles[indexOfSelf].name, "anonymous") == 0)
         {
                 snprintf(sendbuf, BUFMAX, "[Server] ERROR: You are anonymous\n");
-                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                write(client[indexOfSelf], sendbuf, strlen(sendbuf));
                 return;
         }
 	if(strcmp(target, "anonymous") == 0)
         {
                 snprintf(sendbuf, BUFMAX, "[Server] ERROR: The client to which you sent is anonymous\n");
-                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                write(client[indexOfSelf], sendbuf, strlen(sendbuf));
                 return;
         }
 	int foundFlg = 0;
@@ -47,14 +62,14 @@ void tell_c(char *target, char *msg, int indexOfSelf,  int *client,  struct clie
 	if(!foundFlg)
 	{
 		snprintf(sendbuf, BUFMAX, "[Server] ERROR: The receiver doesn't exist\n");
-                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                write(client[indexOfSelf], sendbuf, strlen(sendbuf));
                 return;
 	}
 	/* let's send the msg and notice to self*/
 	snprintf(sendbuf, BUFMAX, "[Server] %s tell you %s\n", clientProfiles[indexOfSelf].name, msg);
-        Writen(target_fd, sendbuf, strlen(sendbuf));
+        write(target_fd, sendbuf, strlen(sendbuf));
 	snprintf(sendbuf, BUFMAX, "[Server] SUCCESS: Your message has been sent\n");
-        Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+        write(client[indexOfSelf], sendbuf, strlen(sendbuf));
 }
 //
 void name_c(char *nameToChange, int indexOfSelf,  int *client,  struct clientProfile *clientProfiles, char *sendbuf)
@@ -63,14 +78,14 @@ void name_c(char *nameToChange, int indexOfSelf,  int *client,  struct clientPro
 	if(strcmp(nameToChange, "anonymous") == 0)	
 	{
 		snprintf(sendbuf, BUFMAX, "[Server] ERROR: Username cannot be anonymous\n");
-		Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+		write(client[indexOfSelf], sendbuf, strlen(sendbuf));
 		return;
 	}
 	int lenOfNameToChange = strlen(nameToChange);
 	if(lenOfNameToChange < 2 || lenOfNameToChange > 12)
 	{
 		snprintf(sendbuf, BUFMAX, "[Server] ERROR: Username can only consists of 2~12 English letters\n");
-                Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                write(client[indexOfSelf], sendbuf, strlen(sendbuf));
                 return;
 	}
 	for(int i=0;i<FD_SETSIZE;i++)
@@ -78,19 +93,19 @@ void name_c(char *nameToChange, int indexOfSelf,  int *client,  struct clientPro
 		if(i != indexOfSelf && client[i] != -1 && strcmp(nameToChange, clientProfiles[i].name) == 0)
 		{
 			snprintf(sendbuf, BUFMAX, "[Server] ERROR: %s has been used by others\n", nameToChange);
-                	Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+                	write(client[indexOfSelf], sendbuf, strlen(sendbuf));
                 	return;
 		}
 	}
 	/* legal name format, time to change it */
 	snprintf(sendbuf, BUFMAX, "[Server] You're now known as %s\n", nameToChange);
-        Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+        write(client[indexOfSelf], sendbuf, strlen(sendbuf));
 	for(int i=0;i<FD_SETSIZE;i++)
         {
 		if(i != indexOfSelf && client[i] != -1)
 		{
 			snprintf(sendbuf, BUFMAX, "[Server] %s is now known as %s\n", clientProfiles[indexOfSelf].name, nameToChange);
-        		Writen(client[i], sendbuf, strlen(sendbuf));
+        		write(client[i], sendbuf, strlen(sendbuf));
 		}	
 	}
 	strcpy(clientProfiles[indexOfSelf].name, nameToChange);
@@ -110,7 +125,7 @@ void who_c(int indexOfSelf,  int *client,  struct clientProfile *clientProfiles,
 				strcat(sendbuf, " ->me\n");
 			else
 				strcat(sendbuf, "\n");
-			Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+			write(client[indexOfSelf], sendbuf, strlen(sendbuf));
 		}
 	}
 }
@@ -139,12 +154,17 @@ void sendErrorMsg(int sockfd, char *errorMsg)
 {
 	if(errorMsg != NULL)
 	{
-		Writen(sockfd, errorMsg, strlen(errorMsg));
+		write(sockfd, errorMsg, strlen(errorMsg));
 	}
 }
 //
 int checkCommand(int numOfParam, char **command, char **errorMsg)
 {
+	if(command[0] == NULL)
+	{
+		*errorMsg = NULL;
+		return 0;
+	}
 	if(strcmp(command[0], "yell") != 0 && strcmp(command[0], "tell") != 0 && strcmp(command[0], "who") != 0 && strcmp(command[0], "name") != 0)
 	{
 		char err[] = "[Server] ERROR: Error command\n";
@@ -152,13 +172,13 @@ int checkCommand(int numOfParam, char **command, char **errorMsg)
                 strcpy(*errorMsg, err);
                 return 0;
 	}
-	if(strcmp(command[0], "who") == 0 && numOfParam != 0 )
+	/*if(strcmp(command[0], "who") == 0)
 	{
 		char err[] = "[Server] invalid parameter(s). try 'who'\n";
 		*errorMsg = malloc(sizeof(char) * (strlen(err)+1));
 		strcpy(*errorMsg, err);
 		return 0;
-	}
+	}*/
 	if(strcmp(command[0], "name") == 0 && numOfParam != 1)
 	{
 		fflush(stdout);
@@ -210,7 +230,7 @@ void sendOfflineMsg(int indexOfSelf, int *client, struct clientProfile *clientPr
 		if(client[i] != -1)
 		{
 			snprintf(sendbuf, BUFMAX, "[Server] %s is offline\n", clientProfiles[indexOfSelf].name);
-        		Writen(client[i], sendbuf, strlen(sendbuf));
+        		write(client[i], sendbuf, strlen(sendbuf));
 		}
 	}
 }
@@ -221,14 +241,14 @@ void sendHelloMsg(int indexOfSelf, int *client, struct clientProfile *clientProf
 	char *address = clientProfiles[indexOfSelf].ip_addr;
 	int port = clientProfiles[indexOfSelf].port;
 	snprintf(sendbuf, BUFMAX, "[Server] Hello, anonymous! From: %s/%d\n", address, port);
-	Writen(client[indexOfSelf], sendbuf, strlen(sendbuf));
+	write(client[indexOfSelf], sendbuf, strlen(sendbuf));
 	/* write to others */
 	for(int i=0;i<FD_SETSIZE;i++)
 	{
 		if(i != indexOfSelf && client[i] != -1)
 		{
 			snprintf(sendbuf, BUFMAX, "[Server] Someone is coming!\n");
-			Writen(client[i], sendbuf, strlen(sendbuf));
+			write(client[i], sendbuf, strlen(sendbuf));
 		}
 	}
 }
@@ -255,14 +275,13 @@ int main(int argc, char **argv)
 	int nready, client[FD_SETSIZE];
 	ssize_t	n;
 	fd_set rset, allset;
-	char buf[MAXLINE];
 	char sendbuf[BUFMAX];
 	char recvbuf[BUFMAX];
 	struct clientProfile clientProfiles[FD_SETSIZE];
 	socklen_t clilen;
 	struct sockaddr_in cliaddr, servaddr;
 
-	listenfd = Socket(AF_INET, SOCK_STREAM, 0);
+	listenfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
@@ -272,7 +291,7 @@ int main(int argc, char **argv)
 
 	//Bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
 
-	Listen(listenfd, LISTENQ);
+	listen(listenfd, LISTENQ);
 
 	maxfd = listenfd; /* initialize */
 	maxi = -1; /* index into client[] array */
@@ -282,11 +301,11 @@ int main(int argc, char **argv)
 	FD_SET(listenfd, &allset);
 	for ( ; ; ) {
 		rset = allset; /* structure assignment */
-		nready = Select(maxfd+1, &rset, NULL, NULL, NULL);
+		nready = select(maxfd+1, &rset, NULL, NULL, NULL);
 
 		if (FD_ISSET(listenfd, &rset)) { /* new client connection */
 			clilen = sizeof(cliaddr);
-			connfd = Accept(listenfd, (SA *) &cliaddr, &clilen);
+			connfd = accept(listenfd, (SA *) &cliaddr, &clilen);
 			for (i = 0; i < FD_SETSIZE; i++)
 				if (client[i] < 0) {
 					client[i] = connfd; /* save descriptor */
@@ -296,7 +315,10 @@ int main(int argc, char **argv)
 					break;
 				}
 			if (i == FD_SETSIZE)
-				err_quit("too many clients");
+			{
+				printf("[ERROR] Too many clients\n");
+				//err_quit("too many clients");
+			}
 			/* main logic */
 			sendHelloMsg(i, client, clientProfiles, sendbuf);
 			/* end of main logic */
@@ -314,8 +336,8 @@ int main(int argc, char **argv)
 			if ( (sockfd = client[i]) < 0)
 				continue;
 			if (FD_ISSET(sockfd, &rset)) {
-				if ( (n = Read(sockfd, recvbuf, BUFMAX)) == 0) { /*connection closed by client */
-					Close(sockfd);
+				if ( (n = read(sockfd, recvbuf, BUFMAX)) == 0) { /*connection closed by client */
+					close(sockfd);
 					FD_CLR(sockfd, &allset);
 					client[i] = -1;
 					sendOfflineMsg(i, client, clientProfiles, sendbuf);
