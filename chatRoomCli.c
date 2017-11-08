@@ -13,7 +13,7 @@
 #include        <unistd.h>
 #include        <sys/wait.h>
 #include        <sys/un.h>              /* for Unix domain sockets */
-#define MAXLINE         1500
+#define MAXLINE         1600
 #define SA struct sockaddr
 #define max(a,b)        ((a) > (b) ? (a) : (b))
 
@@ -50,7 +50,10 @@ void str_cli(FILE *fp, int sockfd)
 
                 if (FD_ISSET(fileno(fp), &rset)) {  /* input is readable */
 			n = read(fileno(fp), buf, MAXLINE);
-                        if (n  == 0  || strncmp("exit", buf, 4) == 0) {
+			char tmp_buf[MAXLINE];
+			strncpy(tmp_buf, buf, n);
+			char *token = strtok(tmp_buf, " \n\r");
+                        if (n  == 0  || strncmp("exit", token, 4) == 0) {
                                 stdineof = 1;
                                 shutdown(sockfd, SHUT_WR);      /* send FIN */
                                 FD_CLR(fileno(fp), &rset);

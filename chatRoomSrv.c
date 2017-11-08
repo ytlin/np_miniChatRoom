@@ -13,7 +13,7 @@
 #include        <unistd.h>
 #include        <sys/wait.h>
 #include        <sys/un.h>              /* for Unix domain sockets */
-#define BUFMAX 1500
+#define BUFMAX 1600
 #define MAX_PARAM_NUM 3  
 #define SA struct sockaddr
 #define LISTENQ 1024
