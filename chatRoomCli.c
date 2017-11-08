@@ -70,10 +70,11 @@ int main(int argc, char **argv)
 	struct sockaddr_in	servaddr;
 
 	if (argc != 3)
+	{
 		printf("usage: ./client <SERVER_IP> <SERVER_PORT>\n");
 		exit(1);
 		//err_quit("usage: ./client <SERVER_IP> <SERVER_PORT>");
-
+	}
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	bzero(&servaddr, sizeof(servaddr));
